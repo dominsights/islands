@@ -9,9 +9,8 @@ defmodule IslandsEngine.Game do
     GenServer.start_link(__MODULE__, name, name: via_tuple(name))
 
   def init(name) do
-    player1 = %{name: name, board: Board.new(), guesses: Guesses.new()}
-    player2 = %{name: nil, board: Board.new(), guesses: Guesses.new()}
-    {:ok, %{player1: player1, player2: player2, rules: %Rules{}}, @timeout}
+    send(self(), {:set_state, name})
+    {:ok, fresh_state(name)}
   end
 
   def add_player(game, name) when is_binary(name), do:
@@ -27,6 +26,16 @@ defmodule IslandsEngine.Game do
     GenServer.call(game, {:guess_coordinate, player, row, col})
 
   def via_tuple(name), do: {:via, Registry, {Registry.Game, name}}
+
+  def handle_info({:set_state, name}, _state_data) do
+    state =
+      case :ets.lookup(:game_state, name) do
+        [] -> fresh_state(name)
+        [{_key, state}] -> state
+      end
+      :ets.insert(:game_state, {name, state})
+      {:noreply, state, @timeout}
+  end
 
   def handle_call({:add_player, name}, _from, state) do
     with {:ok, rules} <- Rules.check(state.rules, :add_player) do
@@ -96,11 +105,20 @@ defmodule IslandsEngine.Game do
     {:stop, {:shutdown, :timeout}, state}
   end
 
+  defp fresh_state(name) do
+    player1 = %{name: name, board: Board.new(), guesses: Guesses.new()}
+    player2 = %{name: nil, board: Board.new(), guesses: Guesses.new()}
+    %{player1: player1, player2: player2, rules: %Rules{}}
+  end
+
   defp update_player2_name(state, name), do: put_in(state.player2.name, name)
 
   defp update_rules(state, rules), do: %{state | rules: rules}
 
-  defp reply_success(state, reply), do: {:reply, reply, state, @timeout}
+  defp reply_success(state, reply) do
+    :ets.insert(:game_state, {state.player1.name, state})
+    {:reply, reply, state, @timeout}
+  end
 
   defp player_board(state, player), do: Map.get(state, player).board
 
