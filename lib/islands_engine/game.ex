@@ -25,6 +25,12 @@ defmodule IslandsEngine.Game do
   def guess_coordinate(game, player, row, col) when player in @players, do:
     GenServer.call(game, {:guess_coordinate, player, row, col})
 
+  def terminate({:shutdown, :timeout}, state) do
+    :ets.delete(:game_state, state.player1.name)
+    :ok
+  end
+  def terminate(_reason, _state), do: :ok
+
   def via_tuple(name), do: {:via, Registry, {Registry.Game, name}}
 
   def handle_info({:set_state, name}, _state_data) do
