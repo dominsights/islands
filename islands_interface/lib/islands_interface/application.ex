@@ -1,17 +1,21 @@
 defmodule IslandsInterface.Application do
-  use Application
-
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
-  def start(_type, _args) do
-    import Supervisor.Spec
+  @moduledoc false
 
-    # Define workers and child supervisors to be supervised
+  use Application
+
+  @impl true
+  def start(_type, _args) do
     children = [
-      # Start the endpoint when the application starts
-      supervisor(IslandsInterfaceWeb.Endpoint, []),
-      # Start your own worker by calling: IslandsInterface.Worker.start_link(arg1, arg2, arg3)
-      # worker(IslandsInterface.Worker, [arg1, arg2, arg3]),
+      # Start the Telemetry supervisor
+      IslandsInterfaceWeb.Telemetry,
+      # Start the PubSub system
+      {Phoenix.PubSub, name: IslandsInterface.PubSub},
+      # Start the Endpoint (http/https)
+      IslandsInterfaceWeb.Endpoint
+      # Start a worker by calling: IslandsInterface.Worker.start_link(arg)
+      # {IslandsInterface.Worker, arg}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -22,6 +26,7 @@ defmodule IslandsInterface.Application do
 
   # Tell Phoenix to update the endpoint configuration
   # whenever the application is updated.
+  @impl true
   def config_change(changed, _new, removed) do
     IslandsInterfaceWeb.Endpoint.config_change(changed, removed)
     :ok
